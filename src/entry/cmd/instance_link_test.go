@@ -213,3 +213,34 @@ func TestBootAccountPrefersDeployKeyWithoutAccountCreds(t *testing.T) {
 		t.Fatalf("bootAccount should have used the deploy-key path, calls: %v", calls)
 	}
 }
+
+func TestNodeLinkSignerUsesEphemeralIdentity(t *testing.T) {
+	// With --ephemeral-identity the node serves with the in-memory key, so the
+	// account link must name that peer and must not write a key file.
+	resetLinkConfig(t)
+	viper.Set(protocol.EphemeralIdentityKey, true)
+	t.Cleanup(func() { viper.Set(protocol.EphemeralIdentityKey, false) })
+
+	peerID, _, err := nodeLinkSigner()
+	if err != nil {
+		t.Fatalf("nodeLinkSigner: %v", err)
+	}
+	served, err := protocol.EphemeralKey()
+	if err != nil {
+		t.Fatalf("EphemeralKey: %v", err)
+	}
+	want, err := peerIDFromPriv(served)
+	if err != nil {
+		t.Fatalf("peerIDFromPriv: %v", err)
+	}
+	if peerID != want {
+		t.Fatalf("linked peer %s, but the node serves as %s", peerID, want)
+	}
+	keyPath, err := protocol.ResolveKeyPath()
+	if err != nil {
+		t.Fatalf("ResolveKeyPath: %v", err)
+	}
+	if _, err := os.Stat(keyPath); !os.IsNotExist(err) {
+		t.Fatalf("a key file was written at %s (stat err %v)", keyPath, err)
+	}
+}

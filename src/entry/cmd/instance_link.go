@@ -57,7 +57,18 @@ automatically — no flags needed. Re-links of the same account are free
 // that identity. Shared by `otela instance link` and the boot-time link
 // check: linking and serving must present the same identity.
 func nodeLinkSigner() (string, account.PeerSigner, error) {
-	priv := protocol.LoadKeyFromFile()
+	var priv crypto.PrivKey
+	if viper.GetBool(protocol.EphemeralIdentityKey) {
+		// `otela start --ephemeral-identity` serves with the in-memory key,
+		// so link that one, and leave no key file behind.
+		var err error
+		priv, err = protocol.EphemeralKey()
+		if err != nil {
+			return "", nil, fmt.Errorf("create ephemeral node identity: %w", err)
+		}
+	} else {
+		priv = protocol.LoadKeyFromFile()
+	}
 	if priv == nil {
 		// First run on this machine: mint the same identity the node will
 		// load on start, so linking and serving share one PeerID.
